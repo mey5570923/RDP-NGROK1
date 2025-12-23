@@ -1,0 +1,59 @@
+name: Windows-RDP-Ngrok-HighSpeed
+
+on:
+  workflow_dispatch: # Menjalankan secara manual
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 360 # Batas maksimal 6 jam
+
+    steps:
+      - name: 1. Mendownload & Instalasi Ngrok
+        run: |
+          Invoke-WebRequest https://bin.equinox.io/c/bTs9arspBaH/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
+          Expand-Archive ngrok.zip
+          
+      - name: 2. Autentikasi Ngrok
+        run: |
+          # Masukkan NGROK_AUTH_TOKEN di GitHub Secrets
+          .\ngrok\ngrok.exe config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+
+      - name: 3. Mengaktifkan RDP & Optimasi Performa
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 1
+          # Mengatur performa ke High Performance
+          powercfg /s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+
+      - name: 4. Membuat User Administrator
+        run: |
+          $pass = "P@ssword123!"
+          net user RDP_Admin $pass /add
+          net localgroup administrators RDP_Admin /add
+          Write-Host "✅ User: RDP_Admin | Pass: $pass"
+
+      - name: 5. Menjalankan Tunnel Ngrok (Region Asia)
+        run: |
+          # Menggunakan region 'ap' (Asia Pacific/Singapore) untuk kecepatan tinggi
+          Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp --region ap 3389"
+          Start-Sleep -Seconds 10
+
+      - name: 6. Mendapatkan Alamat IP & Port
+        run: |
+          $json = Invoke-RestMethod http://localhost:4040/api/tunnels
+          $address = $json.tunnels[0].public_url
+          Write-Host "`n=========================================="
+          Write-Host "🚀 RDP SIAP DIGUNAKAN"
+          Write-Host "Alamat RDP : $address"
+          Write-Host "Username   : RDP_Admin"
+          Write-Host "Password   : P@ssword123!"
+          Write-Host "=========================================="
+
+      - name: 7. Menjaga Sesi (Keep Alive)
+        run: |
+          while ($true) {
+            Write-Host "[$(Get-Date)] RDP Running..."
+            Start-Sleep -Seconds 300
+          }
