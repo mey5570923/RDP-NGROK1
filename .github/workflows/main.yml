@@ -1,4 +1,4 @@
-name: Windows-10-Pro-High-Speed
+name: Windows-10-Pro-RDP
 
 on:
   workflow_dispatch: # Menjalankan secara manual
@@ -6,64 +6,70 @@ on:
 jobs:
   rdp-session:
     runs-on: windows-latest
-    timeout-minutes: 360 # Batas maksimal 6 jam
+    timeout-minutes: 360 # Sesuai batas maksimal GitHub (6 jam)
 
     steps:
-      - name: 1. Download & Instalasi Ngrok
+      - name: 1. Persiapan Installer Ngrok
+        shell: powershell
         run: |
           Invoke-WebRequest https://bin.equinox.io/c/bTs9arspBaH/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
           Expand-Archive ngrok.zip
 
       - name: 2. Autentikasi Ngrok
+        shell: powershell
         run: |
-          # Ambil token dari GitHub Secrets
+          # Pastikan Anda sudah membuat secret NGROK_AUTH_TOKEN di GitHub Settings
           .\ngrok\ngrok.exe config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
 
-      - name: 3. Konfigurasi Windows & Optimasi Performa
+      - name: 3. Aktifkan Fitur RDP & Power Mode
+        shell: powershell
         run: |
-          # Aktifkan Remote Desktop (RDP)
+          # Mengaktifkan Remote Desktop melalui Registry
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           
-          # Optimasi: Set Power Plan ke High Performance agar CPU tidak dibatasi
+          # Mengatur Power Plan ke 'High Performance' agar CPU maksimal
           powercfg /s 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
           
-          # Optimasi RDP: Mengurangi beban visual untuk koneksi lebih lancar
+          # Mengoptimalkan RDP untuk koneksi jarak jauh
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "ColorDepth" -Value 4
           Restart-Service -Name TermService -Force
 
-      - name: 4. Buat User Administrator
+      - name: 4. Buat User Administrator Pro
+        shell: powershell
         run: |
           $user = "AdminPro"
-          $pass = "P@ssword99!"
+          $pass = "P@ssword777!"
           net user $user $pass /add
           net localgroup administrators $user /add
-          Write-Host "✅ User: $user | Pass: $pass"
+          Write-Host "✅ Akun Dibuat: $user"
 
-      - name: 5. Jalankan Tunnel Ngrok (Region Asia/Singapore)
+      - name: 5. Jalankan Tunneling (Region Asia/Singapore)
+        shell: powershell
         run: |
-          # Menggunakan region 'ap' (Asia Pacific) untuk latensi terendah bagi user Indonesia
+          # Menggunakan region 'ap' (Asia Pacific) untuk latensi rendah di Indonesia
           Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp --region ap 3389"
           Start-Sleep -Seconds 12
 
-      - name: 6. Dapatkan Detail Alamat RDP
+      - name: 6. Tampilkan Informasi Login
+        shell: powershell
         run: |
           $json = Invoke-RestMethod http://localhost:4040/api/tunnels
           $address = $json.tunnels[0].public_url
           Write-Host "`n=========================================="
-          Write-Host "🚀 WINDOWS 10 PRO RDP SIAP"
+          Write-Host "🚀 RDP WINDOWS PRO SIAP DIGUNAKAN"
           Write-Host "=========================================="
           Write-Host "Alamat IP  : $address"
           Write-Host "Username   : AdminPro"
-          Write-Host "Password   : P@ssword99!"
-          Write-Host "Region     : Asia Pacific (Singapore)"
+          Write-Host "Password   : P@ssword777!"
           Write-Host "=========================================="
 
-      - name: 7. Menjaga Sesi (Keep Alive)
+      - name: 7. Menjaga Sesi Tetap Hidup (Keep Alive)
+        shell: powershell
         run: |
           $startTime = Get-Date
           while ($true) {
             $elapsed = (Get-Date) - $startTime
-            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Durasi: $($elapsed.ToString('hh\:mm\:ss')) - Performa Stabil..."
+            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] VPS Aktif - Berjalan Selama: $($elapsed.ToString('hh\:mm\:ss'))"
             Start-Sleep -Seconds 300
           }
